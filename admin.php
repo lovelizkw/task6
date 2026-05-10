@@ -1,5 +1,6 @@
 <?php
-$user = 'u82353';
+session_start();
+$user = 'u82353'; 
 $pass = '3228865';
 
 try {
@@ -7,59 +8,84 @@ try {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
     ]);
 
-    if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW'])) {
-        header('WWW-Authenticate: Basic realm="Admin Area"');
-        header('HTTP/1.0 401 Unauthorized');
-        exit('<h1>401 Требуется авторизация</h1>');
+    if (isset($_GET['do']) && $_GET['do'] == 'logout') {
+        unset($_SESSION['admin_ok']);
+        header('Location: admin.php');
+        exit;
     }
 
-    $stmt = $db->prepare("SELECT password_hash FROM admin_auth WHERE login = ?");
-    $stmt->execute([$_SERVER['PHP_AUTH_USER']]);
-    $admin = $stmt->fetch();
+    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['admin_login'])) {
+        $stmt = $db->prepare("SELECT password_hash FROM admin_auth WHERE login = ?");
+        $stmt->execute([$_POST['admin_login']]);
+        $admin = $stmt->fetch();
 
-    if (!$admin || !password_verify($_SERVER['PHP_AUTH_PW'], $admin['password_hash'])) {
-        header('WWW-Authenticate: Basic realm="Admin Area"');
-        header('HTTP/1.0 401 Unauthorized');
-        exit('<h1>401 Неверный логин или пароль</h1>');
+        if ($admin && password_verify($_POST['admin_pass'], $admin['password_hash'])) {
+            $_SESSION['admin_ok'] = true;
+        } else {
+            $error = "Неверный логин или пароль";
+        }
     }
 } catch (PDOException $e) {
     exit('Error: ' . $e->getMessage());
 }
+
+if (empty($_SESSION['admin_ok'])) {
 ?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Админ-панель</title>
+    <title>Вход в админку</title>
     <style>
-        body{font-family:sans-serif;background:#fff1f6;padding:20px;}
-        table{border-collapse:collapse;width:100%;background:white;margin-bottom:30px;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
-        th,td{border:1px solid #ff80ab;padding:12px;text-align:left;}
-        th{background:#ff80ab;color:white;}
-        tr:nth-child(even){background:#fff9fb;}
-        .btn-del{color:#e53e3e;text-decoration:none;font-weight:bold;}
+        body{font-family:sans-serif;background:#fff1f6;display:flex;justify-content:center;padding-top:100px;}
+        .login-box{background:white;padding:30px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);width:350px;text-align:center;}
+        h2{color:#d81b60;}
+        input{width:100%;padding:12px;margin:10px 0;border:1px solid #ff80ab;border-radius:8px;box-sizing:border-box;}
+        button{width:100%;background:#d81b60;color:white;border:none;padding:12px;border-radius:8px;cursor:pointer;font-weight:bold;}
+        .err{color:#e53e3e;background:#fed7d7;padding:10px;border-radius:6px;margin-bottom:15px;}
     </style>
 </head>
 <body>
-    <h1>Панель администратора</h1>
+    <div class="login-box">
+        <h2>Вход в админ-панель</h2>
+        <?php if(isset($error)) echo "<div class='err'>$error</div>"; ?>
+        <form method="POST">
+            <input type="text" name="admin_login" placeholder="Логин" required>
+            <input type="password" name="admin_pass" placeholder="Пароль" required>
+            <button type="submit">Войти</button>
+        </form>
+    </div>
+</body>
+</html>
+<?php
+    exit;
+}
+?>
 
-    <h2>Статистика по языкам</h2>
-    <table>
-        <tr><th>Язык</th><th>Количество</th></tr>
-        <?php
-        $stmt = $db->query("SELECT l.name, COUNT(al.language_id) as count 
-                            FROM languages l 
-                            LEFT JOIN application_languages al ON l.id = al.language_id 
-                            GROUP BY l.id");
-        while ($row = $stmt->fetch()) {
-            echo "<tr><td>".htmlspecialchars($row['name'])."</td><td>{$row['count']}</td></tr>";
-        }
-        ?>
-    </table>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Панель администратора</title>
+    <style>
+        body{font-family:sans-serif;background:#fff1f6;padding:20px;}
+        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+        table{border-collapse:collapse;width:100%;background:white;box-shadow:0 2px 10px rgba(0,0,0,0.05);}
+        th,td{border:1px solid #ff80ab;padding:12px;text-align:left;}
+        th{background:#ff80ab;color:white;}
+        tr:nth-child(even){background:#fff9fb;}
+        .logout{background:#d81b60;color:white;padding:8px 15px;text-decoration:none;border-radius:5px;}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Панель администратора</h1>
+        <a href="?do=logout" class="logout">Выйти</a>
+    </div>
 
     <h2>Список анкет</h2>
     <table>
-        <tr><th>ID</th><th>ФИО</th><th>Email</th><th>Действия</th></tr>
+        <tr><th>ID</th><th>ФИО</th><th>Email</th></tr>
         <?php
         $stmt = $db->query("SELECT id, fio, email FROM applications");
         while ($row = $stmt->fetch()) {
@@ -67,10 +93,6 @@ try {
                     <td>{$row['id']}</td>
                     <td>" . htmlspecialchars($row['fio']) . "</td>
                     <td>" . htmlspecialchars($row['email']) . "</td>
-                    <td>
-                        <a href='edit.php?id={$row['id']}'>Редактировать</a> | 
-                        <a href='delete.php?id={$row['id']}' class='btn-del' onclick='return confirm(\"Удалить?\")'>Удалить</a>
-                    </td>
                   </tr>";
         }
         ?>
