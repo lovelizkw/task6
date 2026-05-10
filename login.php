@@ -1,15 +1,16 @@
 <?php
 session_start();
-$is_logged_in = !empty($_SESSION['login']);
 header('Content-Type: text/html; charset=UTF-8');
 
-$host = 'localhost'; $dbname = 'u82353'; $username = 'u82353'; $password = '3228865';
-$pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
-
-if (isset($_SESSION['login'])) {
+if (!empty($_SESSION['login'])) {
     header('Location: index.php');
     exit;
 }
+
+$host = 'localhost'; $dbname = 'u82353'; $username = 'u82353'; $password = '3228865';
+$pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+]);
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $login = $_POST['login'];
@@ -19,8 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt->execute([$login]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($user && md5($pass) === $user['password_hash']) {
+    if ($user && password_verify($pass, $user['password_hash'])) {
         $_SESSION['login'] = $user['login'];
+        $_SESSION['user_id'] = $user['id']; 
         header('Location: index.php');
         exit;
     } else {
