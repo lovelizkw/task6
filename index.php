@@ -5,23 +5,24 @@ session_start();
 $is_logged_in = !empty($_SESSION['login']);
 $user_id = $is_logged_in ? $_SESSION['user_id'] : null;
 
-$user = 'u82353';
-$pass = '3228865';
-$db = new PDO('mysql:host=localhost;dbname=u82353', $user, $pass, [
-    PDO::ATTR_PERSISTENT => true,
-    PDO::ERRMODE => PDO::ERRMODE_EXCEPTION
-]);
+$db_user = 'u82353';
+$db_pass = '3228865';
+
+try {
+    $db = new PDO('mysql:host=localhost;dbname=u82353', $db_user, $db_pass, [
+        PDO::ATTR_PERSISTENT => true,
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+    ]);
+} catch (PDOException $e) {
+    print('Error connection: ' . $e->getMessage());
+    exit();
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'GET') {
     $messages = array();
     if (!empty($_COOKIE['save'])) {
         setcookie('save', '', 100000);
         $messages[] = 'Спасибо, результаты сохранены.';
-        if (!empty($_COOKIE['password'])) {
-            $messages[] = sprintf('Вы можете <a href="login.php">войти</a> с логином <strong>%s</strong> и паролем <strong>%s</strong> для изменения данных.',
-                strip_tags($_COOKIE['login']),
-                strip_tags($_COOKIE['password']));
-        }
     }
 
     $values = array();
@@ -42,12 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         $stmt->execute([$row['id']]);
         while($lang = $stmt->fetch()) { $values['languages'][] = $lang['language_id']; }
     } else {
-        $values['fio'] = empty($_COOKIE['fio_value']) ? '' : $_COOKIE['fio_value'];
-        $values['phone'] = empty($_COOKIE['phone_value']) ? '' : $_COOKIE['phone_value'];
-        $values['email'] = empty($_COOKIE['email_value']) ? '' : $_COOKIE['email_value'];
-        $values['birth_date'] = empty($_COOKIE['birth_date_value']) ? '' : $_COOKIE['birth_date_value'];
-        $values['gender'] = empty($_COOKIE['gender_value']) ? 'male' : $_COOKIE['gender_value'];
-        $values['biography'] = empty($_COOKIE['biography_value']) ? '' : $_COOKIE['biography_value'];
+        $values['fio'] = '';
+        $values['phone'] = '';
+        $values['email'] = '';
+        $values['birth_date'] = '';
+        $values['gender'] = 'male';
+        $values['biography'] = '';
         $values['languages'] = [];
     }
 
@@ -55,11 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
     exit();
 }
 
-$errors = FALSE;
-if (empty($_POST['fio'])) { $errors = TRUE; setcookie('fio_error', '1', time() + 24 * 3600); }
-if (empty($_POST['birth_date'])) { $errors = TRUE; setcookie('birth_date_error', '1', time() + 24 * 3600); }
-
-if ($errors) {
+if (empty($_POST['fio']) || empty($_POST['birth_date'])) {
     header('Location: index.php');
     exit();
 }
@@ -105,7 +102,7 @@ try {
         }
     }
 } catch (PDOException $e) {
-    print('Error : ' . $e->getMessage());
+    print('Error: ' . $e->getMessage());
     exit();
 }
 
