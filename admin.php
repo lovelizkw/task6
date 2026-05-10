@@ -18,6 +18,29 @@ try {
         $stmt = $db->prepare("SELECT password_hash FROM admin_auth WHERE login = ?");
         $stmt->execute([$_POST['admin_login']]);
         $admin = $stmt->fetch();
+        //
+        if ($admin) {
+            echo "<div style='background:white; color:black; padding:20px; border:3px solid red; position:fixed; top:0; z-index:9999;'>";
+            echo "<strong>Диагностика:</strong><br>";
+            echo "Логин найден в базе.<br>";
+            echo "Длина хеша из базы: " . strlen($admin['password_hash']) . " символов.<br>";
+            echo "Сам хеш: <code>" . $admin['password_hash'] . "</code><br>";
+            
+            if (password_verify($_POST['admin_pass'], $admin['password_hash'])) {
+                echo "<b style='color:green;'>Пароль '123' ПОДОШЕЛ!</b>";
+                $_SESSION['admin_ok'] = true;
+            } else {
+                echo "<b style='color:red;'>Пароль '123' НЕ подходит к этому хешу.</b>";
+            }
+            echo "<br>Отправленный логин: " . htmlspecialchars($_POST['admin_login']);
+            echo "</div>";
+            
+            // Если пароль не подошел, останавливаем скрипт, чтобы рассмотреть ошибку
+            if (!isset($_SESSION['admin_ok'])) exit; 
+        } else {
+            exit("<div style='background:white; color:red; padding:20px;'>ЛОГИН НЕ НАЙДЕН В БАЗЕ! Проверь таблицу admin_auth.</div>");
+        }
+        //
 
         if ($admin && password_verify($_POST['admin_pass'], $admin['password_hash'])) {
             $_SESSION['admin_ok'] = true;
