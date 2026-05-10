@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
 
     $values = array();
     if ($is_logged_in) {
-        $stmt = $db->prepare("SELECT a.* FROM applications a JOIN users u ON u.application_id = a.id WHERE u.id = ?");
+        $stmt = $db->prepare("SELECT a.* FROM applications a JOIN user_auth u ON u.application_id = a.id WHERE u.id = ?");
         $stmt->execute([$user_id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -43,21 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
         $stmt->execute([$row['id']]);
         while($lang = $stmt->fetch()) { $values['languages'][] = $lang['language_id']; }
     } else {
-        $values['fio'] = '';
-        $values['phone'] = '';
-        $values['email'] = '';
-        $values['birth_date'] = '';
-        $values['gender'] = 'male';
-        $values['biography'] = '';
-        $values['languages'] = [];
+        $values = ['fio'=>'', 'phone'=>'', 'email'=>'', 'birth_date'=>'', 'gender'=>'male', 'biography'=>'', 'languages'=>[]];
     }
-
     include('form.php');
-    exit();
-}
-
-if (empty($_POST['fio']) || empty($_POST['birth_date'])) {
-    header('Location: index.php');
     exit();
 }
 
@@ -71,7 +59,7 @@ try {
         $stmt->execute([$_POST['fio'], $_POST['phone'], $_POST['email'], $_POST['birth_date'], $_POST['gender'], $_POST['biography']]);
         $app_id = $db->lastInsertId();
 
-        $stmt = $db->prepare("INSERT INTO users (login, password_hash, application_id) VALUES (?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO user_auth (login, password_hash, application_id) VALUES (?, ?, ?)");
         $stmt->execute([$login, $hash, $app_id]);
 
         if (!empty($_POST['languages'])) {
@@ -80,30 +68,25 @@ try {
                 $stmt->execute([$app_id, $lang_id]);
             }
         }
-        
         setcookie('login', $login, time() + 365 * 24 * 3600);
         setcookie('password', $password, time() + 365 * 24 * 3600);
     } else {
-        $stmt = $db->prepare("SELECT application_id FROM users WHERE id = ?");
+        $stmt = $db->prepare("SELECT application_id FROM user_auth WHERE id = ?");
         $stmt->execute([$user_id]);
         $app_id = $stmt->fetchColumn();
 
         $stmt = $db->prepare("UPDATE applications SET fio = ?, phone = ?, email = ?, birth_date = ?, gender = ?, biography = ? WHERE id = ?");
         $stmt->execute([$_POST['fio'], $_POST['phone'], $_POST['email'], $_POST['birth_date'], $_POST['gender'], $_POST['biography'], $app_id]);
 
-        $stmt = $db->prepare("DELETE FROM application_languages WHERE application_id = ?");
-        $stmt->execute([$app_id]);
-
+        $db->prepare("DELETE FROM application_languages WHERE application_id = ?")->execute([$app_id]);
         if (!empty($_POST['languages'])) {
             foreach ($_POST['languages'] as $lang_id) {
-                $stmt = $db->prepare("INSERT INTO application_languages (application_id, language_id) VALUES (?, ?)");
-                $stmt->execute([$app_id, $lang_id]);
+                $db->prepare("INSERT INTO application_languages (application_id, language_id) VALUES (?, ?)")->execute([$app_id, $lang_id]);
             }
         }
     }
 } catch (PDOException $e) {
-    print('Error: ' . $e->getMessage());
-    exit();
+    print('Error: ' . $e->getMessage()); exit();
 }
 
 setcookie('save', '1');
