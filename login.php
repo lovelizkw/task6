@@ -1,5 +1,6 @@
 <?php
 session_start();
+$is_logged_in = !empty($_SESSION['login']);
 header('Content-Type: text/html; charset=UTF-8');
 
 $host = 'localhost'; $dbname = 'u82353'; $username = 'u82353'; $password = '3228865';
