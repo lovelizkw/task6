@@ -1,7 +1,9 @@
 <?php
 header('Content-Type: text/html; charset=UTF-8');
 session_start();
+
 $is_logged_in = !empty($_SESSION['login']);
+$user_id = $is_logged_in ? $_SESSION['user_id'] : null;
 
 $user = 'u82353';
 $pass = '3228865';
@@ -23,13 +25,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET') {
     }
 
     $values = array();
-    $values['fio'] = empty($_COOKIE['fio_value']) ? '' : $_COOKIE['fio_value'];
-    $values['phone'] = empty($_COOKIE['phone_value']) ? '' : $_COOKIE['phone_value'];
-    $values['email'] = empty($_COOKIE['email_value']) ? '' : $_COOKIE['email_value'];
-    $values['birth_date'] = empty($_COOKIE['birth_date_value']) ? '' : $_COOKIE['birth_date_value'];
-    $values['gender'] = empty($_COOKIE['gender_value']) ? 'male' : $_COOKIE['gender_value'];
-    $values['biography'] = empty($_COOKIE['biography_value']) ? '' : $_COOKIE['biography_value'];
-    $values['languages'] = [];
+    if ($is_logged_in) {
+        $stmt = $db->prepare("SELECT a.* FROM applications a JOIN users u ON u.application_id = a.id WHERE u.id = ?");
+        $stmt->execute([$user_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $values['fio'] = $row['fio'];
+        $values['phone'] = $row['phone'];
+        $values['email'] = $row['email'];
+        $values['birth_date'] = $row['birth_date'];
+        $values['gender'] = $row['gender'];
+        $values['biography'] = $row['biography'];
+
+        $values['languages'] = [];
         $stmt = $db->prepare("SELECT language_id FROM application_languages WHERE application_id = ?");
         $stmt->execute([$row['id']]);
         while($lang = $stmt->fetch()) { $values['languages'][] = $lang['language_id']; }
